@@ -62,7 +62,6 @@ flowchart LR
     WAZUH -->|"forwarding syslog"| SO
     DC -. "vulnerability scan" .-> GVM
 ```
-
 ---
 
 ## Stack tecnologico
