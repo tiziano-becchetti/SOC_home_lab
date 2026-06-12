@@ -63,8 +63,6 @@ flowchart LR
     DC -. "vulnerability scan" .-> GVM
 ```
 
-> **Nota su risorse:** durante gli scenari di lateral movement la workstation Windows 10 sostituisce la VM GVM (che non viene avviata), mantenendo il limite di 5 VM simultanee.
-
 ---
 
 ## Stack tecnologico
