@@ -165,7 +165,7 @@ Una parte del valore del lab sta nell'aver documentato **dove la detection ha fa
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0a66c2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/tiziano-becchetti/)
 [![Email](https://img.shields.io/badge/Email-555?logo=gmail&logoColor=white)](mailto:tiziano.becchetti@gmail.com)
 
-> In preparazione: **CompTIA Security+**
+> Certificazione: **CompTIA Security+**
 
 ---
 
