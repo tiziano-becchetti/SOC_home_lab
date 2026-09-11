@@ -1,0 +1,95 @@
+<!--
+  Wazuh - Custom Detection Rules
+  Virtual SOC Home Lab | Tiziano Becchetti
+
+  Regole di detection custom scritte e validate nel laboratorio.
+  Path manager: /var/ossec/etc/rules/local_rules.xml
+
+  MITRE ATT&CK mappings:
+    T1557.001 - LLMNR/NBT-NS Poisoning and/or Relay
+    T1550.002 - Use Alternate Authentication Material: Pass-the-Hash
+-->
+
+<!--
+  ============================================================
+  SCENARIO 1: LLMNR/NBT-NS Poisoning (T1557.001)
+  ============================================================
+  Architettura delle regole:
+
+  100001  Controllo comportamentale primario: EID 4648 (logon con
+          credenziali esplicite). Quando Responder avvelena una
+          richiesta LLMNR/NBT-NS, la vittima tenta di autenticarsi
+          verso l'host dell'attaccante usando le proprie credenziali.
+          EID 4648 sul DC è il segnale endpoint del poisoning.
+          Usato come controllo compensativo rispetto alla detection
+          di rete (Suricata SID 9000001/9000002) che nell'ambiente
+          NAT non vede il traffico inter-VM per assenza di port
+          mirroring. VERIFICATO: oltre 100 alert su WIN-0QND0F71SH9.
+
+  100002  Detection del logon NTLM di rete (EID 4624 type 3):
+          intercetta l'autenticazione NTLM generata dal poisoning
+          o da un successivo Pass-the-Hash. Più precisa della 100001
+          perché monitora il logon effettivo (non solo il tentativo).
+          Anti-FP: esclude account macchina ($) via 100003.
+
+  100003  Soppressione falsi positivi: filtra i logon da account
+          macchina (DOMAIN\hostname$) che generano EID 4624 NTLM
+          legittimi in grande volume. Necessaria per rendere
+          operativa la 100002 in produzione senza alert storm.
+
+  100004  Behavioral detection: burst di logon NTLM in rapida
+          successione (>= 5 in 60s), pattern tipico di tool
+          automatizzati di relay o Pass-the-Hash (Impacket, Responder
+          in relay mode). Complementare a 100002: dove quella vede
+          il singolo evento, questa vede il pattern automatizzato.
+  ============================================================
+-->
+
+<group name="windows,credential_harvesting,">
+
+  <!-- 100001: Controllo comportamentale LLMNR poisoning (EID 4648) -->
+  <!-- STATO: DEPLOYATA E VERIFICATA - alert attivi su WIN-0QND0F71SH9 -->
+  <rule id="100001" level="12">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4648$</field>
+    <description>Possible LLMNR/NBT-NS Poisoning - Explicit credential logon attempt detected</description>
+    <mitre>
+      <id>T1557.001</id>
+    </mitre>
+  </rule>
+
+  <!-- 100002: Logon NTLM di rete - possibile esito di poisoning o PtH -->
+  <!-- STATO: SCRITTA, non deployata (copertura equivalente da rule 92652 built-in) -->
+  <!-- Anti-FP: richiede 100003 per sopprimere account macchina -->
+  <rule id="100002" level="6">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^3$</field>
+    <field name="win.eventdata.authenticationPackageName">^NTLM$</field>
+    <description>Network NTLM logon detected - possible outcome of LLMNR poisoning or Pass-the-Hash</description>
+    <mitre>
+      <id>T1550.002</id>
+    </mitre>
+  </rule>
+
+  <!-- 100003: Soppressione FP - account macchina generano NTLM legittimo -->
+  <!-- STATO: SCRITTA, companion filter per 100002 e 100004 -->
+  <rule id="100003" level="0">
+    <if_sid>100002</if_sid>
+    <field name="win.eventdata.targetUserName">\\$$</field>
+    <description>Suppression: NTLM logon from machine account (expected noise)</description>
+  </rule>
+
+  <!-- 100004: Burst NTLM - pattern automatizzato relay/PtH -->
+  <!-- STATO: SCRITTA, non deployata -->
+  <!-- Logica: >= 5 eventi 100002 in 60 secondi dallo stesso host sorgente -->
+  <rule id="100004" level="12" frequency="5" timeframe="60">
+    <if_matched_sid>100002</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>Burst of NTLM network logons from same source - possible automated Pass-the-Hash or relay attack</description>
+    <mitre>
+      <id>T1550.002</id>
+    </mitre>
+  </rule>
+
+</group>
